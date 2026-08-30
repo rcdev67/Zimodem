@@ -50,6 +50,7 @@
         <FileName>pmlvic.asm</FileName>
         <FileName>rds64.asm</FileName>
         <FileName>swiftdrvr.asm</FileName>
+        <FileName>swiftdrvr128.asm</FileName>
         <FileName>telnetml.asm</FileName>
         <FileName>up9600.asm</FileName>
         <FileName>x-xfer128.asm</FileName>
@@ -253,6 +254,17 @@
         <SourceFile>
             <Name>swiftdrvr.asm</Name>
             <PrgName>swiftdrvr.bin.prg</PrgName>
+            <FileType>2</FileType>
+            <IncludeInBuild>True</IncludeInBuild>
+            <Regions />
+            <Breakpoints />
+            <Bookmarks />
+            <Topmost>False</Topmost>
+            <FileOpen>False</FileOpen>
+        </SourceFile>
+        <SourceFile>
+            <Name>swiftdrvr128.asm</Name>
+            <PrgName>swiftdrvr128.bin.prg</PrgName>
             <FileType>2</FileType>
             <IncludeInBuild>True</IncludeInBuild>
             <Regions />

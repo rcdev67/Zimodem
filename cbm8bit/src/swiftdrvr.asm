@@ -1,3 +1,21 @@
+; SwiftDriver Main
+;
+;
+;   Copyright 2016-2026 Bo Zimmerman
+;
+;   Licensed under the Apache License, Version 2.0 (the "License");
+;   you may not use this file except in compliance with the License.
+;   You may obtain a copy of the License at
+;
+;	   http://www.apache.org/licenses/LICENSE-2.0
+;
+;   Unless required by applicable law or agreed to in writing, software
+;   distributed under the License is distributed on an "AS IS" BASIS,
+;   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;   See the License for the specific language governing permissions and
+;   limitations under the License.
+;        
+
 * = $C800
         ;.D SWIFTDRVR.BIN
         ; KERNAL BAUD RATES
@@ -105,14 +123,16 @@ DOOP2
         STA ESR232
         LDA #$00
 DOOP3
-        ORA #16;%00010000
+        ORA #16
         STA CONTROL
 ; NO PAR, NO ECHO, XMIT INT, RECV INT
-        LDA #9; %00001001 ;
+        LDA #9
         STA COMMAND
         STA ZPXMF
-        AND #%11110000; KEEP PARITY/ECHO
-        ORA #9;%00001001 ; SET RECV BUF ONLY
+        LDA STATUS      ; clear latched IRQ
+        LDA DATAPORT
+        AND #$F0; KEEP PARITY/ECHO
+        ORA #9 ; SET RECV BUF ONLY
         STA ZPXMO
 NEWVEC
         SEI
@@ -136,9 +156,9 @@ NONVEC
         STA $0326
         LDA #>DOPUT
         STA $0327
-        LDA #>DOCLAL
-        STA $032C
         LDA #<DOCLAL
+        STA $032C
+        LDA #>DOCLAL
         STA $032D
 EOPEN
         JSR UPDCD
@@ -157,6 +177,7 @@ NEWNMI
 ;LDX #%00000011:STX COMMAND ; DISABLE STUFF
         CLD
         LDA STATUS
+        BEQ NMCHAIN
         AND #8; MASK OUT NON-INDI
         BEQ NREVD
 ;STA ERRORS
@@ -171,6 +192,13 @@ NREVD
         JSR $FFE1
         BNE NMOUT
         JMP $FE66
+NMCHAIN
+        PLA
+        TAY
+        PLA
+        TAX
+        PLA
+        JMP (OLDNMI)
 NMOUT
         PLA
         TAY
@@ -188,7 +216,7 @@ UPDCD
         ORA #$10
         STA $DD03
         LDA STATUS
-        AND #64
+        AND #32
         BEQ CLRDCD
         LDA $DD01
         ORA #$10
@@ -213,9 +241,14 @@ DOPUT
 DOPUT2
         JMP $F1CA
 DOPUT3
+        LDX #8
+DPTWAIT
         LDA STATUS
-        AND #16;%00010000
-        BEQ DOPUT3
+        AND #16
+        BNE DPTGO
+        DEX
+        BNE DPTWAIT
+DPTGO
         CLC
         PLA
         STA DATAPORT
@@ -232,8 +265,8 @@ DOCLOSE
         CMP #$02
         BNE NOCLOS
 DOCLOS2
-        LDA #3; 00000011
-        STA COMMAND; DISABLE STUFF
+        LDA #$0A; DROP DTR, NO INTS
+        STA COMMAND
         LDA NMINV+1
         CMP #>NEWNMI
         BNE NOCLOS
