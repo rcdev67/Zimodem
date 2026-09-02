@@ -35,7 +35,7 @@ modem:
 
     AT                          -> OK
     ATW                         lists networks
-    ATW"MyNetwork","MyPassword" joins (case matters; ! and similar are fine)
+    ATW"MyNetwork,MyPassword"   joins (one pair of quotes, comma inside; case matters)
     AT&W                        saves the settings, the modem reconnects on power up
     ATDT telehack.com:23        dials a telnet host; +++ returns to command mode
 
