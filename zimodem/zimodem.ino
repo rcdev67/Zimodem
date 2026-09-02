@@ -78,7 +78,7 @@ const char compile_date[] = __DATE__ " " __TIME__;
 # define DEFAULT_WIFI_INACTIVE HIGH
 #endif
 
-#define DEFAULT_BAUD_RATE 1200
+#define DEFAULT_BAUD_RATE 19200   // the Atari ST side (Flash 1.6) runs 19200 8N1
 #define DEFAULT_SERIAL_CONFIG SERIAL_8N1
 #define RX_BUFFER_SIZE 4096
 /*
@@ -118,6 +118,25 @@ const char compile_date[] = __DATE__ " " __TIME__;
 #  define DEFAULT_PIN_SND GPIO_NUM_6
 #  define DEFAULT_PIN_OTH GPIO_NUM_7 // pulse pin
 #  define DEFAULT_PIN_DTR GPIO_NUM_5
+# elif defined(ARDUINO_NOLOGO_ESP32C3_SUPER_MINI) || defined(ARDUINO_MAKERGO_C3_SUPERMINI)
+   /* ESP32-C3 SuperMini as a WiFi modem for MiSTeryNano on the Tang Nano 20K:
+      terminal UART on GPIO6 (RXD) / GPIO7 (TXD), the other modem lines on pins
+      that exist on the C3 and are otherwise free. */
+#  undef INCLUDE_SD_SHELL
+#  undef INCLUDE_SSH
+#  undef PIN_FACTORY_RESET
+#  undef SUPPORT_LED_PINS
+#  define SUPPORT_LED_PINS false
+#  define DEFAULT_PIN_DCD GPIO_NUM_10
+#  define DEFAULT_PIN_CTS GPIO_NUM_1
+#  define DEFAULT_PIN_RTS GPIO_NUM_0
+#  define DEFAULT_PIN_RI GPIO_NUM_2
+#  define DEFAULT_PIN_DSR GPIO_NUM_3
+#  define DEFAULT_PIN_DTR GPIO_NUM_4
+#  define DEFAULT_PIN_SND -1
+#  define DEFAULT_PIN_OTH -1
+#  define DEFAULT_PIN_TXD GPIO_NUM_7
+#  define DEFAULT_PIN_RXD GPIO_NUM_6
 # elif defined(ARDUINO_ESP32S3_DEV) /* Configuration for the Esp32S3 16MB Dev Board */
 #  define DEFAULT_PIN_DCD GPIO_NUM_5
 #  define DEFAULT_PIN_CTS GPIO_NUM_18 // espdev rts pin
