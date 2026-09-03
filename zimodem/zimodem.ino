@@ -211,7 +211,11 @@ const char compile_date[] = __DATE__ " " __TIME__;
 
 #define MAX_PIN_NO 50
 #define INTERNAL_FLOW_CONTROL_DIV 380
-#define DEFAULT_RECONNECT_DELAY 60000
+#if defined(ARDUINO_NOLOGO_ESP32C3_SUPER_MINI) || defined(ARDUINO_MAKERGO_C3_SUPERMINI)
+# define DEFAULT_RECONNECT_DELAY 5000   // as a modem for a computer, get back on quickly
+#else
+# define DEFAULT_RECONNECT_DELAY 60000
+#endif
 #define MAX_RECONNECT_DELAY 1800000
 
 class ZMode
@@ -412,6 +416,7 @@ static bool connectWifi(const char* ssid, const char* password, IPAddress *ip, I
   WiFi.begin(ssid, password);
 #if defined(ARDUINO_MAKERGO_C3_SUPERMINI) || defined(ARDUINO_NOLOGO_ESP32C3_SUPER_MINI)
   WiFi.setTxPower(WIFI_POWER_8_5dBm);  // the SuperMini's antenna is badly matched, more power makes it worse
+  WiFi.setSleep(false);                // modem sleep drops the link every few minutes on the C3
 #endif
   if(hostname.length() > 0)
     setHostName(hostname.c_str());
