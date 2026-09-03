@@ -25,6 +25,11 @@
 # if defined(ARDUINO_ESP32C3_DEV)
 #   define MAIN_UART_NUM UART_NUM_0
 #   define DEBUG_UART_NUM -1
+# elif defined(ARDUINO_NOLOGO_ESP32C3_SUPER_MINI) || defined(ARDUINO_MAKERGO_C3_SUPERMINI)
+    /* the SuperMini has USB-CDC on boot: debug output goes over the USB
+       connector, so no extra adapter is needed to read it */
+#   define MAIN_UART_NUM UART_NUM_1
+#   define DBSerial Serial
 # elif defined(ARDUINO_ESP32S3_DEV) || (!defined(UART_NUM_2))
 #   define MAIN_UART_NUM UART_NUM_1
 #   define DEBUG_UART_NUM UART_NUM_0
@@ -33,7 +38,9 @@
 #   define DEBUG_UART_NUM UART_NUM_0
 # endif
   static HardwareSerial HWSerial(MAIN_UART_NUM);
+# ifdef DEBUG_UART_NUM
   static HardwareSerial DBSerial(DEBUG_UART_NUM);
+# endif
 #else
 # include "ESP8266WiFi.h"
 # define HWSerial Serial

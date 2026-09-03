@@ -408,15 +408,16 @@ static bool connectWifi(const char* ssid, const char* password, IPAddress *ip, I
     if(!WiFi.config(*ip,*gateWay,*subNet,*dns))
       return false;
   }
+  debugPrintf("WiFi join to '%s' (pw %d chars)...\r\n", ssid, (int)strlen(password));
   WiFi.begin(ssid, password);
 #if defined(ARDUINO_MAKERGO_C3_SUPERMINI) || defined(ARDUINO_NOLOGO_ESP32C3_SUPER_MINI)
-  WiFi.setTxPower(WIFI_POWER_8_5dBm);
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);  // the SuperMini's antenna is badly matched, more power makes it worse
 #endif
   if(hostname.length() > 0)
     setHostName(hostname.c_str());
   bool amConnected = (WiFi.status() == WL_CONNECTED) && (strcmp(WiFi.localIP().toString().c_str(), "0.0.0.0")!=0);
   int WiFiCounter = 0;
-  while ((!amConnected) && (WiFiCounter < 20))
+  while ((!amConnected) && (WiFiCounter < 40))   // 20s: a -69dBm AP took longer than 10s here
   {
     WiFiCounter++;
     if(!amConnected)
@@ -429,6 +430,7 @@ static bool connectWifi(const char* ssid, const char* password, IPAddress *ip, I
 
   if(!amConnected)
   {
+    debugPrintf("WiFi join to '%s' (pw %d chars) failed, status %d\r\n", ssid, (int)strlen(password), (int)WiFi.status());
     nextReconnectDelay = 0; // assume no retry is desired.. let the caller set it up, as it could be bad PW
     WiFi.disconnect();
   }
