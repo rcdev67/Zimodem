@@ -56,10 +56,22 @@ Flash 1.6 works as is.
 After power up the modem needs a few seconds to join; `ati` answers
 `ERROR ON MyNetwork` until it is in, then `CONNECTED TO MyNetwork (ip)`.
 
+## Files for the companion: AT&G"xmodem:<url>"
+
+The FPGA-Companion fork (branch `net-download`) uses the modem to load files
+from a PC onto the SD card. It sends
+
+    AT&G"xmodem:http://host:port/path"
+
+The modem fetches the resource into its own flash, answers `XMODEM <size>`
+and sends it as XMODEM-CRC blocks, each acknowledged by the receiver. The
+argument must be quoted: an unquoted argument ends at the first letter.
+
 ## What is different from stock Zimodem on this board
 
-- Transmit power stays at 8.5 dBm. The SuperMini's antenna is badly matched
-  and more power makes the join slower and, on the Tang's 5V, resets the C3.
+- Transmit power 11 dBm: 15 dBm broke the join, 8.5 dBm lost 12% of the
+  packets on this antenna. WiFi sleep is off, a lost link is retried after
+  20 seconds (5 made it flap), a web get without a reply gives up after 15 s.
 - The join at power up waits 20 seconds instead of 10.
 - Debug output goes to the USB connector (115200 baud) instead of GPIO21, so
   a plain USB cable shows what the modem is doing. Note that Zimodem prints
