@@ -13,7 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-#if INCLUDE_SD_SHELL
+#if INCLUDE_SD_SHELL || INCLUDE_XMODEM_WEB
 
 XModem::XModem(File &f, FlowControlType commandFlow, RecvChar recvChar, SendChar sendChar, DataHandler dataHandler)
 {

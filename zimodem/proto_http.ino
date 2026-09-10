@@ -382,8 +382,18 @@ WiFiClient *doWebGetStream(const char *hostIp, int port, const char *req, bool d
   uint32_t respLength = 0;
   int respCode = -1;
   bool chunked = false;
+  // a server that accepts the connection but never answers must not hang
+  // the modem for good: give the reply head 15 seconds
+  unsigned long headStart = millis();
   while(c->connected() || (c->available()>0))
   {
+    if((c->available()==0) && ((millis() - headStart) > 15000))
+    {
+      debugPrintf("web get: no reply head in 15s\r\n");
+      c->stop();
+      delete c;
+      return null;
+    }
     yield();
     if(c->available()==0)
       continue;

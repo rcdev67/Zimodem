@@ -22,6 +22,7 @@ const char compile_date[] = __DATE__ " " __TIME__;
 
 #define INCLUDE_IRCC true
 #define INCLUDE_SD_SHELL true  /* ESP32 only, requires SPI SD card interface */
+#define INCLUDE_XMODEM_WEB true /* ATGxmodem:<url>: web resource via SPIFFS and XMODEM, no SD needed */
 #define INCLUDE_CBMMODEM true  // ESP32 only, 1650, 1660, 1670, and Pulse Dialing support
 #define INCLUDE_PING true
 #define INCLUDE_SSH true   // ESP32 only, adds SSH client
@@ -212,7 +213,7 @@ const char compile_date[] = __DATE__ " " __TIME__;
 #define MAX_PIN_NO 50
 #define INTERNAL_FLOW_CONTROL_DIV 380
 #if defined(ARDUINO_NOLOGO_ESP32C3_SUPER_MINI) || defined(ARDUINO_MAKERGO_C3_SUPERMINI)
-# define DEFAULT_RECONNECT_DELAY 5000   // as a modem for a computer, get back on quickly
+# define DEFAULT_RECONNECT_DELAY 20000  // 5 s made the link flap: a new attempt interrupted the one in progress
 #else
 # define DEFAULT_RECONNECT_DELAY 60000
 #endif
@@ -253,6 +254,10 @@ class ZMode
 #  include "proto_punter.h"
 #  include "proto_kermit.h"
 #  include "zbrowser.h"
+#elif INCLUDE_XMODEM_WEB
+   /* ATGxmodem:<url> without an SD card: the web resource goes to SPIFFS
+      and from there out over XMODEM, block by block with acknowledges */
+#  include "proto_xmodem.h"
 #endif
 #if INCLUDE_SLIP
 #  include "zslipmode.h"

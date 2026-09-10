@@ -2789,6 +2789,7 @@ ZResult ZCommand::doSerialCommand()
         logPrintfln("Proc: %c %lu '%s'",lastCmd,vval,vbuf);
       else
         logPrintfln("Proc: %c %lu ''",lastCmd,vval);
+      debugPrintf("Proc: %c vlen %d '%s'\r\n", lastCmd, vlen, (vlen > 0) ? (char *)vbuf : "");
       /*
        * We have cmd and args, time to DO!
        */
@@ -3375,6 +3376,49 @@ ZResult ZCommand::doSerialCommand()
           break;
         }
         case 'g':
+#if INCLUDE_XMODEM_WEB
+          debugPrintf("ATG: vlen %d vbuf '%s'\r\n", vlen, (char *)vbuf);
+          if((vlen > 7) && (strncasecmp((char *)vbuf, "xmodem:", 7) == 0))
+          {
+            // ATGxmodem:<url>: fetch the resource into SPIFFS first, then
+            // hand it out over XMODEM. Every 128 byte block is acknowledged
+            // by the receiver and repeated on a bad CRC, so a lost byte on
+            // the serial line costs a retry instead of the whole file.
+            char *hostIp;
+            char *req;
+            int port;
+            bool doSSL;
+            if(!parseWebUrl(vbuf + 7, &hostIp, &req, &port, &doSSL))
+            {
+              debugPrintf("ATGxmodem: url not understood\r\n");
+              result = ZERROR;
+            }
+            else
+            {
+              debugPrintf("ATGxmodem: host '%s' port %d req '%s' wifi %d\r\n", hostIp, port, req, (int)WiFi.status());
+              if(SPIFFS.exists("/temp.web"))
+                SPIFFS.remove("/temp.web");
+              if(!doWebGet(hostIp, port, &SPIFFS, "/temp.web", req, doSSL))
+              {
+                debugPrintf("ATGxmodem: web get failed\r\n");
+                result = ZERROR;
+              }
+              else
+              {
+                File f = SPIFFS.open("/temp.web", "r");
+                serial.printf("XMODEM %lu%s", (unsigned long)f.size(), EOLN.c_str());
+                serial.flushAlways();
+                String errors = "";
+                bool ok = xDownload(commandMode.getFlowControlType(), f, errors);
+                f.close();
+                SPIFFS.remove("/temp.web");
+                delay(200);
+                result = ok ? ZOK : ZERROR;
+              }
+            }
+          }
+          else
+#endif
           result = doWebStream(vval,vbuf,vlen,isNumber,"/temp.web",false);
           break;
         case 's':
