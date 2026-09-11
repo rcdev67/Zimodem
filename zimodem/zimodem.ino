@@ -139,6 +139,11 @@ const char compile_date[] = __DATE__ " " __TIME__;
 #  define DEFAULT_PIN_TXD GPIO_NUM_7
 #  define DEFAULT_PIN_RXD GPIO_NUM_6
 # elif defined(ARDUINO_ESP32S3_DEV) /* Configuration for the Esp32S3 16MB Dev Board */
+   /* GPIO0 is the BOOT button and also hangs on the USB-UART bridge's
+      auto-reset circuit. With the PC attached it read low for seconds at a
+      time, and every five seconds of that wiped the saved WiFi settings.
+      The C3 dev boards drop the factory-reset pin for the same reason. */
+#  undef PIN_FACTORY_RESET
 #  define DEFAULT_PIN_DCD GPIO_NUM_5
 #  define DEFAULT_PIN_CTS GPIO_NUM_18 // espdev rts pin
 #  define DEFAULT_PIN_RTS GPIO_NUM_17 // espdev cts pin
