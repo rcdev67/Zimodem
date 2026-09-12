@@ -64,8 +64,9 @@ from a PC onto the SD card. It sends
     AT&G"xmodem:http://host:port/path"
 
 The modem opens the resource, answers `XMODEM <size>` and sends it as
-XMODEM-CRC blocks straight from the connection, each acknowledged by the
-receiver. Nothing is staged in flash, so the size is only limited by the
+XMODEM-CRC blocks of 1 KB straight from the connection, each acknowledged
+by the receiver. The companion runs the transfer at 460800 baud, set with
+`ATB460800` before and `ATB19200` after. Nothing is staged in flash, so the size is only limited by the
 card at the other end. The argument must be quoted: an unquoted argument
 ends at the first letter.
 
