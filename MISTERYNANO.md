@@ -63,9 +63,31 @@ from a PC onto the SD card. It sends
 
     AT&G"xmodem:http://host:port/path"
 
-The modem fetches the resource into its own flash, answers `XMODEM <size>`
-and sends it as XMODEM-CRC blocks, each acknowledged by the receiver. The
-argument must be quoted: an unquoted argument ends at the first letter.
+The modem opens the resource, answers `XMODEM <size>` and sends it as
+XMODEM-CRC blocks straight from the connection, each acknowledged by the
+receiver. Nothing is staged in flash, so the size is only limited by the
+card at the other end. The argument must be quoted: an unquoted argument
+ends at the first letter.
+
+## The same on an ESP32-S3 DevKitC-1
+
+The stock `ARDUINO_ESP32S3_DEV` block works with two changes: the factory
+reset pin is off (GPIO0 sits on the board's USB-UART auto-reset circuit
+and read low for seconds while a PC was attached, which wiped the saved
+WiFi settings every time), and WiFi sleep is off (with it pings took 250
+ms and some were lost, web gets stalled). Wiring: GPIO16 (TX) to Tang 41,
+GPIO15 (RX) to Tang 51, GND to GND. Power the board through its "UART"
+USB socket, a jumper from the Tang's 5V pin let it brown out at every
+WiFi join. Debug output is on that same socket at 115200. Flash with
+
+    esptool --chip esp32s3 --port <UART port> --baud 460800 write_flash 0x0 zimodem.ino.merged.bin
+
+built with
+
+    arduino-cli compile --fqbn esp32:esp32:esp32s3:FlashSize=16M,PSRAM=opi,PartitionScheme=default_8MB zimodem
+
+for the N16R8 module. Opening the UART port from a terminal resets the
+board, so do not do that in the middle of a transfer.
 
 ## What is different from stock Zimodem on this board
 
