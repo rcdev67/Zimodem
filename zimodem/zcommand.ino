@@ -3396,22 +3396,30 @@ ZResult ZCommand::doSerialCommand()
             else
             {
               debugPrintf("ATGxmodem: host '%s' port %d req '%s' wifi %d\r\n", hostIp, port, req, (int)WiFi.status());
-              if(SPIFFS.exists("/temp.web"))
-                SPIFFS.remove("/temp.web");
-              if(!doWebGet(hostIp, port, &SPIFFS, "/temp.web", req, doSSL))
+              unsigned long getStart = millis();
+              uint32_t respLength = 0;
+              WiFiClient *wc = doWebGetStream(hostIp, port, req, doSSL, &respLength);
+              if((wc == NULL) || (respLength == 0))
               {
-                debugPrintf("ATGxmodem: web get failed\r\n");
+                debugPrintf("ATGxmodem: %s after %lu ms\r\n", (wc == NULL) ? "no reply from the server" : "reply without a length", millis() - getStart);
+                if(wc != NULL)
+                {
+                  wc->stop();
+                  delete wc;
+                }
                 result = ZERROR;
               }
               else
               {
-                File f = SPIFFS.open("/temp.web", "r");
-                serial.printf("XMODEM %lu%s", (unsigned long)f.size(), EOLN.c_str());
+                debugPrintf("ATGxmodem: streaming %lu bytes, head after %lu ms\r\n", (unsigned long)respLength, millis() - getStart);
+                serial.printf("XMODEM %lu%s", (unsigned long)respLength, EOLN.c_str());
                 serial.flushAlways();
                 String errors = "";
-                bool ok = xDownload(commandMode.getFlowControlType(), f, errors);
-                f.close();
-                SPIFFS.remove("/temp.web");
+                unsigned long xmStart = millis();
+                bool ok = xDownloadStream(commandMode.getFlowControlType(), wc, respLength, errors);
+                debugPrintf("ATGxmodem: xmodem %s after %lu ms\r\n", ok ? "done" : "failed", millis() - xmStart);
+                wc->stop();
+                delete wc;
                 delay(200);
                 result = ok ? ZOK : ZERROR;
               }

@@ -358,12 +358,15 @@ WiFiClient *doWebGetStream(const char *hostIp, int port, const char *req, bool d
   WiFiClient *c = createWiFiClient(doSSL);
   if(port == 0)
     port = 80;
+  unsigned long connStart = millis();
   if(!c->connect(hostIp, port))
   {
+    debugPrintf("web get: connect failed after %lu ms, rssi %d\r\n", millis() - connStart, (int)WiFi.RSSI());
     c->stop();
     delete c;
     return null;
   }
+  debugPrintf("web get: connected in %lu ms, rssi %d\r\n", millis() - connStart, (int)WiFi.RSSI());
   c->setNoDelay(DEFAULT_NO_DELAY);
 
   const char *root = "";
@@ -389,7 +392,7 @@ WiFiClient *doWebGetStream(const char *hostIp, int port, const char *req, bool d
   {
     if((c->available()==0) && ((millis() - headStart) > 15000))
     {
-      debugPrintf("web get: no reply head in 15s\r\n");
+      debugPrintf("web get: no reply head in 15s, rssi %d\r\n", (int)WiFi.RSSI());
       c->stop();
       delete c;
       return null;

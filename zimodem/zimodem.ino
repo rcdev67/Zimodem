@@ -427,6 +427,8 @@ static bool connectWifi(const char* ssid, const char* password, IPAddress *ip, I
 #if defined(ARDUINO_MAKERGO_C3_SUPERMINI) || defined(ARDUINO_NOLOGO_ESP32C3_SUPER_MINI)
   WiFi.setTxPower(WIFI_POWER_11dBm);   // the SuperMini's antenna is badly matched: 15dBm broke the join, 8.5dBm lost 12% of packets
   WiFi.setSleep(false);                // modem sleep drops the link every few minutes on the C3
+#elif defined(ARDUINO_ESP32S3_DEV)
+  WiFi.setSleep(false);                // with modem sleep the S3 answered pings late and lost some, and web gets stalled
 #endif
   if(hostname.length() > 0)
     setHostName(hostname.c_str());

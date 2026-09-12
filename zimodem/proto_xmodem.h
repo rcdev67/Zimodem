@@ -151,6 +151,57 @@ static bool xDownload(FlowControlType commandFlow, File &f, String &errors)
   return result;
 }
 
+/* Send a web resource as XMODEM straight from its socket. Staging it in
+   SPIFFS first limited the size to the partition and, on the S3, took
+   longer than the receiver was willing to wait. The socket is read one
+   block at a time; the block stays in the XModem buffer for resends. */
+static WiFiClient *xStreamClient = NULL;
+static uint32_t    xStreamLeft   = 0;
+
+static bool xSDataHandler(File *xfile, unsigned long number, char *buf, int sz)
+{
+  if((xStreamClient == NULL) || (xStreamLeft == 0))
+    return false;
+  int i = 0;
+  unsigned long last = millis();
+  while((i < sz) && (xStreamLeft > 0))
+  {
+    if(xStreamClient->available() > 0)
+    {
+      int c = xStreamClient->read();
+      if(c < 0)
+        continue;
+      buf[i++] = (char)c;
+      xStreamLeft--;
+      last = millis();
+    }
+    else
+    {
+      if(!xStreamClient->connected())
+        break;                              // the source went away
+      if((millis() - last) > 15000)
+        break;                              // the source stalled
+      yield();
+    }
+  }
+  if(i == 0)
+    return false;
+  while(i < sz)
+    buf[i++] = (char)26;
+  return true;
+}
+
+static bool xDownloadStream(FlowControlType commandFlow, WiFiClient *c, uint32_t length, String &errors)
+{
+  File dummy;
+  xStreamClient = c;
+  xStreamLeft   = length;
+  XModem xmo(dummy, commandFlow, xReceiveSerial, xSendSerial, xSDataHandler);
+  bool result = xmo.transmit();
+  xStreamClient = NULL;
+  return result && (xStreamLeft == 0);
+}
+
 static bool xUpload(FlowControlType commandFlow, File &f, String &errors)
 {
   XModem xmo(f, commandFlow, xReceiveSerial, xSendSerial, xUDataHandler);

@@ -438,6 +438,7 @@ bool XModem::transmitFrames(transfer_t transfer)
       else
       {
       }
+      debugPrintf("XM: block %lu reply %d retry %d\r\n", this->blockNoExt, ret, retries + 1);
       if(++retries > 10)
       {
         //cancel transfer due to FAIL - send CAN twice
