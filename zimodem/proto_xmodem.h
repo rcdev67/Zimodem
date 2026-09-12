@@ -72,6 +72,7 @@ class XModem
     bool send0block = false;
     
   public:
+    void setBlockSize(int sz) { blockSize = sz; }   // 128 (SOH) or 1024 (STX)
     static const unsigned char XMO_NACK = 21;
     static const unsigned char XMO_ACK =  6;
     static const unsigned char XMO_CRC = 'C';
@@ -197,6 +198,7 @@ static bool xDownloadStream(FlowControlType commandFlow, WiFiClient *c, uint32_t
   xStreamClient = c;
   xStreamLeft   = length;
   XModem xmo(dummy, commandFlow, xReceiveSerial, xSendSerial, xSDataHandler);
+  xmo.setBlockSize(1024);   // one acknowledge per KB instead of per 128 bytes
   bool result = xmo.transmit();
   xStreamClient = NULL;
   return result && (xStreamLeft == 0);
