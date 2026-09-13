@@ -22,6 +22,7 @@ const char compile_date[] = __DATE__ " " __TIME__;
 
 #define INCLUDE_IRCC true
 #define INCLUDE_SD_SHELL true  /* ESP32 only, requires SPI SD card interface */
+#include "joypad.h"    /* a Bluetooth controller when built with the Bluepad32 core */
 #define INCLUDE_XMODEM_WEB true /* ATGxmodem:<url>: web resource via SPIFFS and XMODEM, no SD needed */
 #define INCLUDE_CBMMODEM true  // ESP32 only, 1650, 1660, 1670, and Pulse Dialing support
 #define INCLUDE_PING true
@@ -665,6 +666,7 @@ void setup()
   s_pinWrite(DEFAULT_PIN_WIFI,(WiFi.status() == WL_CONNECTED)?DEFAULT_WIFI_ACTIVE:DEFAULT_WIFI_INACTIVE);
   s_pinWrite(DEFAULT_PIN_HS,(baudRate>=DEFAULT_HS_BAUD)?DEFAULT_HS_ACTIVE:DEFAULT_HS_INACTIVE);
 #endif
+  joypadSetup();         // a Bluetooth controller, see joypad.ino
 }
 
 void checkReconnect()
@@ -745,6 +747,7 @@ void checkFactoryReset()
 
 void loop() 
 {
+  joypadLoop();          // a Bluetooth controller, see joypad.ino
   checkFactoryReset();
   checkReconnect();
   if(HWSerial.available())

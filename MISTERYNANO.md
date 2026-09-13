@@ -90,6 +90,47 @@ built with
 for the N16R8 module. Opening the UART port from a terminal resets the
 board, so do not do that in the middle of a transfer.
 
+## A Bluetooth controller as the ST's joystick
+
+Built with the Bluepad32 board package instead of the plain esp32 core,
+the same modem also pairs a Bluetooth Low Energy game controller and feeds
+it to the MiSTeryNano core as joystick port 1. Tested with an Xbox Series
+controller (model 1914, firmware 5.15 or newer is required by Bluepad32).
+The C3 and S3 only do Bluetooth Low Energy, so PlayStation and Switch
+controllers, which need classic Bluetooth, are out of reach on these two
+chips.
+
+Wiring, one extra line: C3 pin `TX` (GPIO21) -> Tang Nano 20K pin 54; on
+the S3 it is GPIO17 -> pin 54. The core (branch `nano20k-running`) reads
+one byte per state change there at 115200 baud, bit 0 right, 1 left,
+2 down, 3 up, 4 fire (A), 5 second button (B), and releases the joystick
+half a second after the last byte. Modem, WiFi and file transfer are
+unchanged. The `Serial:` setting in the OSD does not matter for the
+joystick.
+
+Pairing: power the modem, hold the pair button on the controller until
+its logo blinks fast, wait up to 30 seconds until it stays lit. From then
+on it reconnects on its own when switched on. If it was paired to a PC
+before, switch Bluetooth off there first, the controller goes back to its
+last partner.
+
+Images on the release page: `zimodem-c3-supermini-bluepad32.bin` and
+`zimodem-s3-devkitc-bluepad32.bin` (whole flash at `0x0`; the partition
+layout differs from the plain build, so the saved WiFi settings are lost
+once and `atw"Net,Password"` plus `at&w` are needed again).
+
+Building: install the board package from
+`https://raw.githubusercontent.com/ricardoquesada/esp32-arduino-lib-builder/master/bluepad32_files/package_esp32_bluepad32_index.json`
+(`esp32-bluepad32:esp32` 4.1.0), then
+
+    arduino-cli compile --fqbn esp32-bluepad32:esp32:esp32c3:PartitionScheme=no_ota,CDCOnBoot=cdc --build-property "build.extra_flags=-DARDUINO_NOLOGO_ESP32C3_SUPER_MINI -UARDUINO_ESP32C3_DEV -DESP32 -DCORE_DEBUG_LEVEL=0 -DARDUINO_USB_MODE=1 -DARDUINO_USB_CDC_ON_BOOT=1" zimodem
+    arduino-cli compile --fqbn esp32-bluepad32:esp32:esp32s3:FlashSize=16M,PSRAM=opi,PartitionScheme=default_8MB --build-property "build.extra_flags=-DESP32 -DCORE_DEBUG_LEVEL=0" zimodem
+
+The package has no SuperMini entry, hence the defines. The code is in
+`zimodem/joypad.cpp`; with the plain esp32 core it compiles to nothing.
+Keep the debug level at 0: on the C3 the joystick line is the UART0 pin,
+and any log output there would reach the ST as joystick bytes.
+
 ## What is different from stock Zimodem on this board
 
 - Transmit power 11 dBm: 15 dBm broke the join, 8.5 dBm lost 12% of the
