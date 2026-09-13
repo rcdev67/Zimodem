@@ -72,6 +72,8 @@ ends at the first letter.
 
 ## The same on an ESP32-S3 DevKitC-1
 
+![Wiring of the ESP32-S3 DevKitC-1 to the Tang Nano 20K](doc/s3_wiring.svg)
+
 The stock `ARDUINO_ESP32S3_DEV` block works with two changes: the factory
 reset pin is off (GPIO0 sits on the board's USB-UART auto-reset circuit
 and read low for seconds while a PC was attached, which wiped the saved
