@@ -117,7 +117,14 @@ last partner.
 Images on the release page: `zimodem-c3-supermini-bluepad32.bin` and
 `zimodem-s3-devkitc-bluepad32.bin` (whole flash at `0x0`; the partition
 layout differs from the plain build, so the saved WiFi settings are lost
-once and `atw"Net,Password"` plus `at&w` are needed again).
+once; the companion sets them again from its `wifi=` ini line, or use
+`atw"Net,Password"` plus `at&w`).
+
+Take the S3 for this build. With Bluetooth running the WiFi driver insists
+on modem sleep, and on the C3's small antenna that made the link lose
+every second ping and stall file transfers for half a minute; the S3
+carries both without trouble. On a C3 the Bluetooth build is fine for the
+joystick alone, with a second board as the modem.
 
 Building: install the board package from
 `https://raw.githubusercontent.com/ricardoquesada/esp32-arduino-lib-builder/master/bluepad32_files/package_esp32_bluepad32_index.json`
