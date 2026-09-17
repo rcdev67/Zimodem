@@ -2945,6 +2945,18 @@ ZResult ZCommand::doSerialCommand()
             configMode.switchTo();
             result = ZOK;
         }
+        else
+        if(strcmp((const char *)vbuf,"joy")==0)       // AT+JOY: which Bluetooth controller is connected
+        {
+            serial.printf("JOYPAD %s%s", joypadStatus(), EOLN.c_str());
+            result = ZOK;
+        }
+        else
+        if(strcmp((const char *)vbuf,"joypair")==0)   // AT+JOYPAIR: forget the bond and accept a new controller
+        {
+            joypadPair();
+            result = ZOK;
+        }
 #if INCLUDE_SD_SHELL
         else
         if((strstr((const char *)vbuf,"shell")==(char *)vbuf)

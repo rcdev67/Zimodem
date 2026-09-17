@@ -85,6 +85,24 @@ uint8_t joypadState()
   return b;
 }
 
+const char *joypadStatus()
+{
+  static char name[40];
+  if((joyCtl == nullptr) || !joyCtl->isConnected())
+    return "NONE";
+  snprintf(name, sizeof(name), "%s", joyCtl->getModelName().c_str());
+  return name;
+}
+
+void joypadPair()
+{
+  if((joyCtl != nullptr) && joyCtl->isConnected())
+    joyCtl->disconnect();
+  BP32.forgetBluetoothKeys();
+  BP32.enableNewBluetoothConnections(true);
+  debugPrintf("Joypad: bonds forgotten, waiting for a controller in pairing mode\r\n");
+}
+
 void joypadLoop()
 {
   BP32.update();
@@ -101,4 +119,6 @@ void joypadLoop()
 #else
 void joypadSetup() {}
 void joypadLoop() {}
+const char *joypadStatus() { return "UNSUPPORTED"; }
+void joypadPair() {}
 #endif
