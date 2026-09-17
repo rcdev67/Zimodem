@@ -116,6 +116,10 @@ on it reconnects on its own when switched on. If it was paired to a PC
 before, switch Bluetooth off there first, the controller goes back to its
 last partner.
 
+The companion asks the modem about the controller: `AT+JOY` answers
+`JOYPAD <model>` or `JOYPAD NONE`, `AT+JOYPAIR` drops the controller and
+all bonds and accepts a new one. Its menu entry `Controller...` uses both.
+
 Images on the release page: `zimodem-c3-supermini-bluepad32.bin` and
 `zimodem-s3-devkitc-bluepad32.bin` (whole flash at `0x0`; the partition
 layout differs from the plain build, so the saved WiFi settings are lost
