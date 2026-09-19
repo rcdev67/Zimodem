@@ -327,6 +327,15 @@ static IPAddress *staticGW = null;
 static IPAddress *staticSN = null;
 static unsigned long lastConnectAttempt = 0;
 static unsigned long nextReconnectDelay = 0; // zero means don't attempt reconnects
+// Joins that keep failing before the chip is restarted. Measured on an
+// ESP32-S3: once the radio has wedged, no number of joins gets it back, and
+// "ERROR ON <ssid>" is all it says - for a quarter of an hour, until the
+// reset line was pulled. Restarting is the only way out that does not need
+// someone at the board, and the modem comes back in its network within
+// seconds. Four attempts are about two minutes, so a router that is off for
+// a while does not send this into a restart every few seconds.
+#define RECONNECT_RESTART_AFTER 4
+static int failedReconnects = 0;
 static SerialConfig serialConfig = DEFAULT_SERIAL_CONFIG;
 static int baudRate=DEFAULT_BAUD_RATE;
 static int dequeSize=1+(DEFAULT_BAUD_RATE/INTERNAL_FLOW_CONTROL_DIV);
@@ -457,7 +466,10 @@ static bool connectWifi(const char* ssid, const char* password, IPAddress *ip, I
     WiFi.disconnect();
   }
   else
+  {
     nextReconnectDelay = DEFAULT_RECONNECT_DELAY; // if connected, we always want to try reconns in the future
+    failedReconnects = 0;                         // in a network again, see checkReconnect()
+  }
 
 #if SUPPORT_LED_PINS
   s_pinWrite(DEFAULT_PIN_WIFI,(WiFi.status() == WL_CONNECTED)?DEFAULT_WIFI_ACTIVE:DEFAULT_WIFI_INACTIVE);
@@ -688,7 +700,21 @@ void checkReconnect()
         debugPrintf("Attempting Reconnect to %s\r\n",wifiSSI.c_str());
         unsigned long oldReconnectDelay = nextReconnectDelay;
         if(!connectWifi(wifiSSI.c_str(),wifiPW.c_str(),staticIP,staticDNS,staticGW,staticSN))
+        {
           debugPrintf("Unable to reconnect to %s.\r\n",wifiSSI.c_str());
+          failedReconnects++;
+          // Nothing of the ST's is thrown away by this: without a network
+          // there is no connection to lose, and the modem's settings are in
+          // flash. A transfer in progress is left alone all the same.
+          if((failedReconnects >= RECONNECT_RESTART_AFTER) && (conns == null))
+          {
+            debugPrintf("%d joins failed, restarting the chip\r\n",failedReconnects);
+            delay(50);
+            ESP.restart();
+          }
+        }
+        else
+          failedReconnects = 0;
         nextReconnectDelay = oldReconnectDelay * 2;
         if(nextReconnectDelay > MAX_RECONNECT_DELAY)
           nextReconnectDelay = DEFAULT_RECONNECT_DELAY;
