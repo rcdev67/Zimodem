@@ -3392,10 +3392,11 @@ ZResult ZCommand::doSerialCommand()
           debugPrintf("ATG: vlen %d vbuf '%s'\r\n", vlen, (char *)vbuf);
           if((vlen > 7) && (strncasecmp((char *)vbuf, "xmodem:", 7) == 0))
           {
-            // ATGxmodem:<url>: fetch the resource into SPIFFS first, then
-            // hand it out over XMODEM. Every 128 byte block is acknowledged
-            // by the receiver and repeated on a bad CRC, so a lost byte on
-            // the serial line costs a retry instead of the whole file.
+            // ATGxmodem:<url>: fetch the resource into PSRAM first, then
+            // hand it out over XMODEM, see xFetchToMemory(). Every 1 KB
+            // block is acknowledged by the receiver and repeated on a bad
+            // CRC, so a lost byte on the serial line costs a retry instead
+            // of the whole file.
             char *hostIp;
             char *req;
             int port;
@@ -3423,13 +3424,33 @@ ZResult ZCommand::doSerialCommand()
               }
               else
               {
-                debugPrintf("ATGxmodem: streaming %lu bytes, head after %lu ms\r\n", (unsigned long)respLength, millis() - getStart);
-                serial.printf("XMODEM %lu%s", (unsigned long)respLength, EOLN.c_str());
-                serial.flushAlways();
-                String errors = "";
-                unsigned long xmStart = millis();
-                bool ok = xDownloadStream(commandMode.getFlowControlType(), wc, respLength, errors);
-                debugPrintf("ATGxmodem: xmodem %s after %lu ms\r\n", ok ? "done" : "failed", millis() - xmStart);
+                bool fetchFailed = false;
+                uint8_t *mem = NULL;
+#ifdef ZIMODEM_ESP32
+                mem = xFetchToMemory(wc, respLength, &fetchFailed);
+#endif
+                debugPrintf("ATGxmodem: %s %lu bytes, %lu ms\r\n",
+                            mem ? "in memory," : fetchFailed ? "broke off reading" : "streaming",
+                            (unsigned long)respLength, millis() - getStart);
+                bool ok = false;
+                if(!fetchFailed)
+                {
+                  serial.printf("XMODEM %lu%s", (unsigned long)respLength, EOLN.c_str());
+                  serial.flushAlways();
+                  String errors = "";
+                  unsigned long xmStart = millis();
+#ifdef ZIMODEM_ESP32
+                  if(mem)
+                  {
+                    wc->stop();   // all of it is here, the server can go
+                    ok = xDownloadMemory(commandMode.getFlowControlType(), mem, respLength, errors);
+                    free(mem);
+                  }
+                  else
+#endif
+                    ok = xDownloadStream(commandMode.getFlowControlType(), wc, respLength, errors);
+                  debugPrintf("ATGxmodem: xmodem %s after %lu ms\r\n", ok ? "done" : "failed", millis() - xmStart);
+                }
                 wc->stop();
                 delete wc;
                 delay(200);

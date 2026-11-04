@@ -192,6 +192,89 @@ static bool xSDataHandler(File *xfile, unsigned long number, char *buf, int sz)
   return true;
 }
 
+/* The resource in PSRAM first, then XMODEM from there. Sent straight
+   from the socket, the web server was tied to the serial line: at the
+   C64's 38400 baud the ESP32 takes 3.8 KB/s, its TCP window stays shut,
+   and the server's probes for it back off to seconds. A 330 KB disk
+   stalled block after block until the 15 s limit above ended it short;
+   at the ST's 460800 it hardly ever showed. Over WiFi the whole file is
+   in in under a second. */
+#ifdef ZIMODEM_ESP32
+static const uint8_t *xMemData = NULL;
+static uint32_t       xMemLeft = 0;
+
+static bool xMDataHandler(File *xfile, unsigned long number, char *buf, int sz)
+{
+  if(xMemLeft == 0)
+    return false;
+  int n = (xMemLeft < (uint32_t)sz) ? (int)xMemLeft : sz;
+  memcpy(buf, xMemData, n);
+  xMemData += n;
+  xMemLeft -= n;
+  while(n < sz)
+    buf[n++] = (char)26;
+  return true;
+}
+
+// NULL when there is no PSRAM or not enough of it: then nothing has been
+// read and the stream can still be sent as it is. *failed is set when the
+// reading itself broke off; then the resource is lost for this request.
+static uint8_t *xFetchToMemory(WiFiClient *c, uint32_t length, bool *failed)
+{
+  *failed = false;
+  if(!psramFound())
+    return NULL;
+  uint8_t *mem = (uint8_t *)ps_malloc(length);
+  if(mem == NULL)
+    return NULL;
+  uint32_t got = 0;
+  unsigned long last = millis();
+  while(got < length)
+  {
+    int a = c->available();
+    if(a > 0)
+    {
+      uint32_t want = length - got;
+      int r = c->read(mem + got, ((uint32_t)a < want) ? a : want);
+      if(r > 0)
+      {
+        got += r;
+        last = millis();
+      }
+    }
+    else
+    {
+      if(!c->connected())
+        break;
+      if((millis() - last) > 15000)
+        break;
+      delay(1);
+    }
+  }
+  if(got != length)
+  {
+    free(mem);
+    *failed = true;
+    return NULL;
+  }
+  return mem;
+}
+
+static bool xDownloadMemory(FlowControlType commandFlow, uint8_t *mem, uint32_t length, String &errors)
+{
+  File dummy;
+  xMemData = mem;
+  xMemLeft = length;
+  XModem xmo(dummy, commandFlow, xReceiveSerial, xSendSerial, xMDataHandler);
+  xmo.setBlockSize(1024);
+  bool result = xmo.transmit();
+  bool all = (xMemLeft == 0);
+  xMemData = NULL;
+  xMemLeft = 0;
+  return result && all;
+}
+#endif
+
 static bool xDownloadStream(FlowControlType commandFlow, WiFiClient *c, uint32_t length, String &errors)
 {
   File dummy;
