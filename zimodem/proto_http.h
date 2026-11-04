@@ -18,7 +18,11 @@
 bool parseWebUrl(uint8_t *vbuf, char **hostIp, char **req, int *port, bool *doSSL);
 bool doWebGetBytes(const char *hostIp, int port, const char *req, const bool doSSL, uint8_t *buf, int *bufSize);
 bool doGopherGetBytes(const char *hostIp, int port, const char *req, const bool doSSL, uint8_t *buf, int *bufSize);
-WiFiClient *doWebGetStream(const char *hostIp, int port, const char *req, bool doSSL, uint32_t *responseSize);
+// rangeFrom > 0 asks for the resource from that byte on ("Range: bytes=N-");
+// *codeOut, if given, gets the reply's status: 206 for the part, 200 when
+// the server sent the whole resource instead.
+WiFiClient *doWebGetStream(const char *hostIp, int port, const char *req, bool doSSL, uint32_t *responseSize,
+                           uint32_t rangeFrom = 0, int *codeOut = NULL);
 WiFiClient *doGopherGetStream(const char *hostIp, int port, const char *req, bool doSSL, uint32_t *responseSize);
 bool doWebGet(const char *hostIp, int port, FS *fs, const char *filename, const char *req, const bool doSSL);
 bool doGopherGet(const char *hostIp, int port, FS *fs, const char *filename, const char *req, const bool doSSL);

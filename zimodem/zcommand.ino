@@ -3427,12 +3427,20 @@ ZResult ZCommand::doSerialCommand()
                 bool fetchFailed = false;
                 uint8_t *mem = NULL;
 #ifdef ZIMODEM_ESP32
-                mem = xFetchToMemory(wc, respLength, &fetchFailed);
+                mem = xFetchToMemory(&wc, hostIp, port, req, doSSL, respLength, &fetchFailed);
 #endif
                 debugPrintf("ATGxmodem: %s %lu bytes, %lu ms\r\n",
                             mem ? "in memory," : fetchFailed ? "broke off reading" : "streaming",
                             (unsigned long)respLength, millis() - getStart);
                 bool ok = false;
+#ifdef ZIMODEM_ESP32
+                // one line before XMODEM or ERROR, which the receiver logs
+                serial.printf("FETCH %lu of %lu bytes in %lu ms, %s, %d connection%s, rssi %d%s",
+                              (unsigned long)xFetchGot, (unsigned long)respLength,
+                              xFetchMs, xFetchWhy, xFetchTries, (xFetchTries == 1) ? "" : "s",
+                              (int)WiFi.RSSI(), EOLN.c_str());
+                serial.flushAlways();
+#endif
                 if(!fetchFailed)
                 {
                   serial.printf("XMODEM %lu%s", (unsigned long)respLength, EOLN.c_str());
@@ -3442,7 +3450,8 @@ ZResult ZCommand::doSerialCommand()
 #ifdef ZIMODEM_ESP32
                   if(mem)
                   {
-                    wc->stop();   // all of it is here, the server can go
+                    if(wc != NULL)
+                      wc->stop();   // all of it is here, the server can go
                     ok = xDownloadMemory(commandMode.getFlowControlType(), mem, respLength, errors);
                     free(mem);
                   }
@@ -3451,8 +3460,11 @@ ZResult ZCommand::doSerialCommand()
                     ok = xDownloadStream(commandMode.getFlowControlType(), wc, respLength, errors);
                   debugPrintf("ATGxmodem: xmodem %s after %lu ms\r\n", ok ? "done" : "failed", millis() - xmStart);
                 }
-                wc->stop();
-                delete wc;
+                if(wc != NULL)
+                {
+                  wc->stop();
+                  delete wc;
+                }
                 delay(200);
                 result = ok ? ZOK : ZERROR;
               }

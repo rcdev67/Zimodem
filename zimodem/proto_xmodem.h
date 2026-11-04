@@ -216,41 +216,139 @@ static bool xMDataHandler(File *xfile, unsigned long number, char *buf, int sz)
   return true;
 }
 
+// What the last fetch did, for one line to the receiver: the debug port
+// prints the WiFi password at start-up and is not looked at.
+static uint32_t    xFetchGot = 0;
+static unsigned long xFetchMs = 0;
+static const char *xFetchWhy = "";
+
 // NULL when there is no PSRAM or not enough of it: then nothing has been
 // read and the stream can still be sent as it is. *failed is set when the
 // reading itself broke off; then the resource is lost for this request.
-static uint8_t *xFetchToMemory(WiFiClient *c, uint32_t length, bool *failed)
+// A weak WiFi link, -76 dBm, brought a disk down to 1 KB/s with pauses
+// of 15 s and more: TCP waits longer after every lost packet. A new
+// connection does not carry that wait, so a fetch that stands still for
+// XFETCH_STALL_MS asks again for the rest, from the byte it stood at, a
+// few times within XFETCH_DEADLINE_MS. A server that ignores the range
+// sends it all; then what is in already is read past.
+#define XFETCH_BYTES_PER_MS 128      // 128 KB/s, and a pause after every packet
+#define XFETCH_STALL_MS     4000
+#define XFETCH_TRIES        8
+#define XFETCH_DEADLINE_MS  100000
+static int xFetchTries = 0;
+
+// *pc is the connection with the reply head read; it may be replaced by a
+// new one, and the caller stops and deletes whatever *pc is at the end,
+// NULL included.
+static uint8_t *xFetchToMemory(WiFiClient **pc, const char *host, int port, const char *req, bool ssl,
+                               uint32_t length, bool *failed)
 {
   *failed = false;
+  xFetchGot = 0;
+  xFetchMs = 0;
+  xFetchTries = 1;
+  xFetchWhy = "no psram";
   if(!psramFound())
     return NULL;
   uint8_t *mem = (uint8_t *)ps_malloc(length);
+  xFetchWhy = "no room in psram";
   if(mem == NULL)
     return NULL;
-  uint32_t got = 0;
-  unsigned long last = millis();
+  static uint8_t scratch[512];   // for reading past what is in already
+  uint32_t got = 0;              // bytes in mem
+  uint32_t skip = 0;             // bytes of the current reply to read past
+  uint32_t taken = 0;            // everything read, for the pace
+  unsigned long start = millis();
+  xFetchWhy = "complete";
   while(got < length)
   {
-    int a = c->available();
-    if(a > 0)
+    WiFiClient *c = *pc;
+    if(c == NULL)
     {
-      uint32_t want = length - got;
-      int r = c->read(mem + got, ((uint32_t)a < want) ? a : want);
-      if(r > 0)
+      uint32_t len2 = 0;
+      int code = 0;
+      c = doWebGetStream(host, port, req, ssl, &len2, got, &code);
+      if(c == NULL)
       {
-        got += r;
-        last = millis();
+        xFetchWhy = "no new connection";
+        if((xFetchTries >= XFETCH_TRIES) || ((millis() - start) > XFETCH_DEADLINE_MS))
+          break;
+        xFetchTries++;
+        delay(1000);
+        continue;
+      }
+      *pc = c;
+      if((code == 206) && (len2 == length - got))
+        skip = 0;
+      else
+      if((code == 200) && (len2 == length))
+        skip = got;              // the whole resource again
+      else
+      {
+        xFetchWhy = "the server answered something else";
+        break;
       }
     }
-    else
+
+    // read until all of it is in, or the connection stands still
+    unsigned long last = millis();
+    while(got < length)
     {
-      if(!c->connected())
-        break;
-      if((millis() - last) > 15000)
-        break;
-      delay(1);
+      int a = c->available();
+      if(a > 0)
+      {
+        uint8_t *dst = skip ? scratch : (mem + got);
+        uint32_t want = skip ? ((skip < sizeof(scratch)) ? skip : sizeof(scratch)) : (length - got);
+        int r = c->read(dst, ((uint32_t)a < want) ? a : want);
+        if(r > 0)
+        {
+          if(skip)
+            skip -= r;
+          else
+            got += r;
+          taken += r;
+          last = millis();
+          unsigned long due = (unsigned long)(taken / XFETCH_BYTES_PER_MS);
+          unsigned long now = millis() - start;
+          delay((due > now) ? (due - now) : 1);
+        }
+        else
+        if((millis() - last) > XFETCH_STALL_MS)
+        {
+          xFetchWhy = "read returned nothing";
+          break;
+        }
+      }
+      else
+      {
+        if(!c->connected())
+        {
+          xFetchWhy = "closed by the server";
+          break;
+        }
+        if((millis() - last) > XFETCH_STALL_MS)
+        {
+          xFetchWhy = "stalled";
+          break;
+        }
+        delay(1);
+      }
     }
+    if(got >= length)
+    {
+      xFetchWhy = "complete";
+      break;
+    }
+    // the rest on a new connection
+    if((xFetchTries >= XFETCH_TRIES) || ((millis() - start) > XFETCH_DEADLINE_MS))
+      break;
+    xFetchTries++;
+    c->stop();
+    delete c;
+    *pc = NULL;
   }
+  xFetchGot = got;
+  xFetchMs = millis() - start;
   if(got != length)
   {
     free(mem);

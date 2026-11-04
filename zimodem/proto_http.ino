@@ -349,7 +349,8 @@ WiFiClient *doGopherGetStream(const char *hostIp, int port, const char *req, boo
   return c;
 }
 
-WiFiClient *doWebGetStream(const char *hostIp, int port, const char *req, bool doSSL, uint32_t *responseSize)
+WiFiClient *doWebGetStream(const char *hostIp, int port, const char *req, bool doSSL, uint32_t *responseSize,
+                           uint32_t rangeFrom, int *codeOut)
 {
   *responseSize = 0;
   if(WiFi.status() != WL_CONNECTED)
@@ -378,6 +379,8 @@ WiFiClient *doWebGetStream(const char *hostIp, int port, const char *req, bool d
   c->printf("GET /%s HTTP/1.1\r\n",req);
   c->printf("User-Agent: Zimodem Firmware\r\n");
   c->printf("Host: %s\r\n",hostIp);
+  if(rangeFrom > 0)
+    c->printf("Range: bytes=%lu-\r\n", (unsigned long)rangeFrom);
   c->printf("Connection: close\r\n\r\n");
   
   String ln = "";
@@ -469,7 +472,7 @@ WiFiClient *doWebGetStream(const char *hostIp, int port, const char *req, bool d
     {
         c->stop();
         delete c;
-        return doWebGetStream(hostIp2,port2,req2,doSSL2,responseSize);
+        return doWebGetStream(hostIp2,port2,req2,doSSL2,responseSize,rangeFrom,codeOut);
       
     }
   }
@@ -480,8 +483,10 @@ WiFiClient *doWebGetStream(const char *hostIp, int port, const char *req, bool d
     respLength = 1;
 #endif
   *responseSize = respLength;
+  if(codeOut != NULL)
+    *codeOut = respCode;
   if(((!c->connected())&&(c->available()==0))
-  ||(respCode != 200)
+  ||((respCode != 200) && !((rangeFrom > 0) && (respCode == 206)))
   ||(respLength <= 0))
   {
     c->stop();
