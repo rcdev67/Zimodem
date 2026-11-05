@@ -28,6 +28,7 @@ struct DisplayText
   char sys[DISPLAY_NAME + 1];
   char line[DISPLAY_LINES][DISPLAY_COLS + 1];
   int bars;                               // the WiFi, 0..4, -1 none
+  int progress;                           // 0..100 with a bar on the last line, -1 none
 };
 
 static SemaphoreHandle_t dispLock = NULL;
@@ -36,6 +37,7 @@ static volatile bool dispDirty = false;
 static char dispSys[DISPLAY_NAME + 1] = "MISTrcdev";
 static char dispAct[DISPLAY_COLS + 1] = "";
 static unsigned long dispActUntil = 0;
+static int dispProg = -1;                 // the bar under dispAct, -1 none
 static unsigned long dispNextMs = 0;
 static volatile bool dispSh1106 = false;
 static volatile bool dispOn = true;
@@ -139,6 +141,20 @@ static void dispRender(int shift)
   dispText((128 - w) / 2 + shift, 0, t.sys, true);
   for(int i=0;i<DISPLAY_LINES;i++)
     dispText(shift, 2 + i, t.line[i], false);
+  if(t.progress >= 0)                     // a bar on the last line, 4 to 123 filled
+  {
+    int fill = 4 + (120 * t.progress) / 100;
+    for(int x=1;x<127;x++)
+    {
+      int xx = x + shift - 1;
+      if((xx < 0) || (xx >= 128))
+        continue;
+      if((x == 1) || (x == 126))
+        dispFb[7][xx] = 0x7e;                 // the ends
+      else
+        dispFb[7][xx] = (x >= 3 && x <= fill) ? 0x7e : 0x42;   // filled, or top and bottom
+    }
+  }
   if(t.bars >= 0)                         // four bars at the end of the WiFi line
   {
     for(int b=0;b<4;b++)
@@ -246,6 +262,7 @@ static void displayCompose()
   memset(&t, 0, sizeof(t));
   strncpy(t.sys, dispSys, DISPLAY_NAME);
   t.bars = -1;
+  t.progress = -1;
 
   if(WiFi.status() == WL_CONNECTED)
   {
@@ -289,7 +306,16 @@ static void displayCompose()
   dispSet(t.line[4], sizeof(t.line[4]), "modem %s, %d", mode, baudRate);
 
   if(millis() < dispActUntil)
-    strncpy(t.line[5], dispAct, DISPLAY_COLS);
+  {
+    if(dispProg >= 0)                     // the transfer above its bar
+    {
+      strncpy(t.line[4], dispAct, DISPLAY_COLS);
+      t.line[5][0] = 0;
+      t.progress = dispProg;
+    }
+    else
+      strncpy(t.line[5], dispAct, DISPLAY_COLS);
+  }
 
   xSemaphoreTake(dispLock, portMAX_DELAY);
   if(memcmp(&t, &dispNext, sizeof(t)) != 0)
@@ -331,7 +357,19 @@ void displayActivity(const char *fmt, ...)
   vsnprintf(dispAct, sizeof(dispAct), fmt, ap);
   va_end(ap);
   dispActUntil = millis() + 15000;
+  dispProg = -1;
   dispNextMs = 0;                         // shown with the next displayLoop()
+}
+
+void displayProgress(int percent, const char *fmt, ...)
+{
+  va_list ap;
+  va_start(ap, fmt);
+  vsnprintf(dispAct, sizeof(dispAct), fmt, ap);
+  va_end(ap);
+  dispProg = (percent < 0) ? 0 : (percent > 100) ? 100 : percent;
+  dispActUntil = millis() + 15000;
+  dispNextMs = 0;
 }
 
 void displaySystem(const char *name)

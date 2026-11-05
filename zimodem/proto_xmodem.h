@@ -159,6 +159,8 @@ static bool xDownload(FlowControlType commandFlow, File &f, String &errors)
 static WiFiClient *xStreamClient = NULL;
 static uint32_t    xStreamLeft   = 0;
 
+static void xShowSend(uint32_t left);   // the status display, below
+
 static bool xSDataHandler(File *xfile, unsigned long number, char *buf, int sz)
 {
   if((xStreamClient == NULL) || (xStreamLeft == 0))
@@ -189,6 +191,7 @@ static bool xSDataHandler(File *xfile, unsigned long number, char *buf, int sz)
     return false;
   while(i < sz)
     buf[i++] = (char)26;
+  xShowSend(xStreamLeft);
   return true;
 }
 
@@ -203,6 +206,24 @@ static bool xSDataHandler(File *xfile, unsigned long number, char *buf, int sz)
 static const uint8_t *xMemData = NULL;
 static uint32_t       xMemLeft = 0;
 
+// The second half of a download, XMODEM to the receiver, on the status
+// display: percent, speed and the bar, twice a second.
+static uint32_t xSendTotal = 0;
+static unsigned long xSendStart = 0, xSendShown = 0;
+
+static void xShowSend(uint32_t left)
+{
+  unsigned long now = millis();
+  if((xSendTotal == 0) || ((now - xSendShown) < 500))
+    return;
+  xSendShown = now;
+  uint32_t sent = xSendTotal - left;
+  unsigned pct = (unsigned)((uint64_t)sent * 100 / xSendTotal);
+  displayProgress(pct, "SEND %u%% %lu KB/s", pct,
+                  (unsigned long)(sent / ((now - xSendStart) ? (now - xSendStart) : 1)));
+  displayLoop();
+}
+
 static bool xMDataHandler(File *xfile, unsigned long number, char *buf, int sz)
 {
   if(xMemLeft == 0)
@@ -213,6 +234,7 @@ static bool xMDataHandler(File *xfile, unsigned long number, char *buf, int sz)
   xMemLeft -= n;
   while(n < sz)
     buf[n++] = (char)26;
+  xShowSend(xMemLeft);
   return true;
 }
 
@@ -312,7 +334,8 @@ static uint8_t *xFetchToMemory(WiFiClient **pc, const char *host, int port, cons
           if((last - shown) >= 500)      // the status display, twice a second
           {
             shown = last;
-            displayActivity("FETCH %u%% %lu KB/s", (unsigned)((uint64_t)got * 100 / length),
+            unsigned pct = (unsigned)((uint64_t)got * 100 / length);
+            displayProgress(pct, "FETCH %u%% %lu KB/s", pct,
                             (unsigned long)(taken / ((last - start) ? (last - start) : 1)));
             displayLoop();
           }
@@ -371,6 +394,8 @@ static bool xDownloadMemory(FlowControlType commandFlow, uint8_t *mem, uint32_t 
   File dummy;
   xMemData = mem;
   xMemLeft = length;
+  xSendTotal = length;
+  xSendStart = xSendShown = millis();
   XModem xmo(dummy, commandFlow, xReceiveSerial, xSendSerial, xMDataHandler);
   xmo.setBlockSize(1024);
   bool result = xmo.transmit();
@@ -386,6 +411,8 @@ static bool xDownloadStream(FlowControlType commandFlow, WiFiClient *c, uint32_t
   File dummy;
   xStreamClient = c;
   xStreamLeft   = length;
+  xSendTotal = length;
+  xSendStart = xSendShown = millis();
   XModem xmo(dummy, commandFlow, xReceiveSerial, xSendSerial, xSDataHandler);
   xmo.setBlockSize(1024);   // one acknowledge per KB instead of per 128 bytes
   bool result = xmo.transmit();

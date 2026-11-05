@@ -3463,7 +3463,7 @@ ZResult ZCommand::doSerialCommand()
                 if(fetchFailed)
                   displayActivity("FETCH failed");
                 else
-                  displayActivity("sending %lu KB", (unsigned long)(respLength / 1024));
+                  displayProgress(0, "SEND 0%% of %lu KB", (unsigned long)(respLength / 1024));
                 displayLoop();
                 if(!fetchFailed)
                 {
@@ -3483,7 +3483,10 @@ ZResult ZCommand::doSerialCommand()
 #endif
                     ok = xDownloadStream(commandMode.getFlowControlType(), wc, respLength, errors);
                   debugPrintf("ATGxmodem: xmodem %s after %lu ms\r\n", ok ? "done" : "failed", millis() - xmStart);
-                  displayActivity(ok ? "sent %lu KB" : "sending failed", (unsigned long)(respLength / 1024));
+                  if(ok)
+                    displayProgress(100, "sent %lu KB", (unsigned long)(respLength / 1024));
+                  else
+                    displayActivity("sending failed");
                 }
                 if(wc != NULL)
                 {
