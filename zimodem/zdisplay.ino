@@ -38,6 +38,7 @@ static char dispSys[DISPLAY_NAME + 1] = "MISTrcdev";
 static char dispAct[DISPLAY_COLS + 1] = "";
 static unsigned long dispActUntil = 0;
 static int dispProg = -1;                 // the bar under dispAct, -1 none
+static char dispLast[DISPLAY_COLS + 1] = "";   // the last file fetched, "> name"
 static unsigned long dispNextMs = 0;
 static volatile bool dispSh1106 = false;
 static volatile bool dispOn = true;
@@ -316,6 +317,9 @@ static void displayCompose()
     else
       strncpy(t.line[5], dispAct, DISPLAY_COLS);
   }
+  else
+  if(dispLast[0])                         // what came last, until the next one
+    strncpy(t.line[5], dispLast, DISPLAY_COLS);
 
   xSemaphoreTake(dispLock, portMAX_DELAY);
   if(memcmp(&t, &dispNext, sizeof(t)) != 0)
@@ -389,6 +393,38 @@ void displaySystem(const char *name)
     }
   strncpy(dispSys, name, DISPLAY_NAME);
   dispSys[DISPLAY_NAME] = 0;
+  dispNextMs = 0;
+}
+
+// The name of a file fetched, from the path of its URL: the part after the
+// last '/', without a query, with %XX decoded. A path that ends in '/' is a
+// folder list and changes nothing.
+void displayLoaded(const char *path)
+{
+  if(path == NULL)
+    return;
+  const char *s = strrchr(path, '/');
+  s = s ? s + 1 : path;
+  char name[DISPLAY_COLS];
+  size_t n = 0;
+  for(;*s && (*s != '?') && (n < sizeof(name) - 1);s++)
+  {
+    char c = *s;
+    if((c == '%') && isxdigit((unsigned char)s[1]) && isxdigit((unsigned char)s[2]))
+    {
+      char hex[3] = { s[1], s[2], 0 };
+      c = (char)strtol(hex, NULL, 16);
+      s += 2;
+    }
+    else
+    if(c == '+')
+      c = ' ';
+    name[n++] = c;
+  }
+  name[n] = 0;
+  if(n == 0)
+    return;
+  snprintf(dispLast, sizeof(dispLast), "> %s", name);
   dispNextMs = 0;
 }
 

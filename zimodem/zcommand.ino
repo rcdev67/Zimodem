@@ -3484,7 +3484,10 @@ ZResult ZCommand::doSerialCommand()
                     ok = xDownloadStream(commandMode.getFlowControlType(), wc, respLength, errors);
                   debugPrintf("ATGxmodem: xmodem %s after %lu ms\r\n", ok ? "done" : "failed", millis() - xmStart);
                   if(ok)
+                  {
                     displayProgress(100, "sent %lu KB", (unsigned long)(respLength / 1024));
+                    displayLoaded(req);   // the name stays when the bar has gone
+                  }
                   else
                     displayActivity("sending failed");
                 }

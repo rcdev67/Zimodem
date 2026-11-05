@@ -24,6 +24,7 @@ void displayLoop();
 void displayActivity(const char *fmt, ...);   // the last line, for a while
 void displayProgress(int percent, const char *fmt, ...);   // a line and a bar below it
 void displaySystem(const char *name);
+void displayLoaded(const char *path);  // the last file fetched, kept on the last line
 bool displayCommand(const char *arg, String &answer);
 #else
 static inline void displaySetup() {}
@@ -31,6 +32,7 @@ static inline void displayLoop() {}
 static inline void displayActivity(const char *fmt, ...) {}
 static inline void displayProgress(int percent, const char *fmt, ...) {}
 static inline void displaySystem(const char *name) {}
+static inline void displayLoaded(const char *path) {}
 static inline bool displayCommand(const char *arg, String &answer) { return false; }
 #endif
 
