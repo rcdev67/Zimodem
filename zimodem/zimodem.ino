@@ -232,6 +232,7 @@ class ZMode
     virtual void loop();
 };
 
+#include "zdisplay.h"   /* the status display, an OLED on I2C, see zdisplay.ino */
 #include "pet2asc.h"
 #include "rt_clock.h"
 #include "filelog.h"
@@ -683,6 +684,7 @@ void setup()
   s_pinWrite(DEFAULT_PIN_HS,(baudRate>=DEFAULT_HS_BAUD)?DEFAULT_HS_ACTIVE:DEFAULT_HS_INACTIVE);
 #endif
   joypadSetup();         // a Bluetooth controller, see joypad.ino
+  displaySetup();        // the status display, see zdisplay.ino
 }
 
 void checkReconnect()
@@ -786,4 +788,5 @@ void loop()
   }
   currMode->loop();
   zclock.tick();
+  displayLoop();
 }

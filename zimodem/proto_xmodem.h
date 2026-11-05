@@ -259,6 +259,7 @@ static uint8_t *xFetchToMemory(WiFiClient **pc, const char *host, int port, cons
   uint32_t skip = 0;             // bytes of the current reply to read past
   uint32_t taken = 0;            // everything read, for the pace
   unsigned long start = millis();
+  unsigned long shown = start;   // the last progress on the status display
   xFetchWhy = "complete";
   while(got < length)
   {
@@ -308,6 +309,13 @@ static uint8_t *xFetchToMemory(WiFiClient **pc, const char *host, int port, cons
             got += r;
           taken += r;
           last = millis();
+          if((last - shown) >= 500)      // the status display, twice a second
+          {
+            shown = last;
+            displayActivity("FETCH %u%% %lu KB/s", (unsigned)((uint64_t)got * 100 / length),
+                            (unsigned long)(taken / ((last - start) ? (last - start) : 1)));
+            displayLoop();
+          }
           unsigned long due = (unsigned long)(taken / XFETCH_BYTES_PER_MS);
           unsigned long now = millis() - start;
           delay((due > now) ? (due - now) : 1);

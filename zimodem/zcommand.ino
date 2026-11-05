@@ -2957,6 +2957,25 @@ ZResult ZCommand::doSerialCommand()
             joypadPair();
             result = ZOK;
         }
+        else
+        if(strncmp((const char *)vbuf,"sys:",4)==0)   // AT+SYS:<name>: the machine, for the status display
+        {
+            displaySystem((const char *)vbuf + 4);
+            result = ZOK;
+        }
+        else
+        if(strncmp((const char *)vbuf,"disp",4)==0)   // AT+DISP[:1306|:1106|:on|:off], see zdisplay.h
+        {
+            String answer;
+            if(displayCommand((const char *)vbuf + 4, answer))
+            {
+                if(answer.length() > 0)
+                    serial.printf("%s%s", answer.c_str(), EOLN.c_str());
+                result = ZOK;
+            }
+            else
+                result = ZERROR;
+        }
 #if INCLUDE_SD_SHELL
         else
         if((strstr((const char *)vbuf,"shell")==(char *)vbuf)
@@ -3441,6 +3460,11 @@ ZResult ZCommand::doSerialCommand()
                               (int)WiFi.RSSI(), EOLN.c_str());
                 serial.flushAlways();
 #endif
+                if(fetchFailed)
+                  displayActivity("FETCH failed");
+                else
+                  displayActivity("sending %lu KB", (unsigned long)(respLength / 1024));
+                displayLoop();
                 if(!fetchFailed)
                 {
                   serial.printf("XMODEM %lu%s", (unsigned long)respLength, EOLN.c_str());
@@ -3459,6 +3483,7 @@ ZResult ZCommand::doSerialCommand()
 #endif
                     ok = xDownloadStream(commandMode.getFlowControlType(), wc, respLength, errors);
                   debugPrintf("ATGxmodem: xmodem %s after %lu ms\r\n", ok ? "done" : "failed", millis() - xmStart);
+                  displayActivity(ok ? "sent %lu KB" : "sending failed", (unsigned long)(respLength / 1024));
                 }
                 if(wc != NULL)
                 {
