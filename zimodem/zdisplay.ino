@@ -39,6 +39,9 @@ static char dispAct[DISPLAY_COLS + 1] = "";
 static unsigned long dispActUntil = 0;
 static int dispProg = -1;                 // the bar under dispAct, -1 none
 static char dispLast[DISPLAY_COLS + 1] = "";   // the last file fetched, "> name"
+static char dispMsgTitle[DISPLAY_NAME + 1] = "";  // a message over the whole screen
+static char dispMsg[DISPLAY_LINES][DISPLAY_COLS + 1];
+static unsigned long dispMsgUntil = 0;
 static unsigned long dispNextMs = 0;
 static volatile bool dispSh1106 = false;
 static volatile bool dispOn = true;
@@ -265,6 +268,23 @@ static void displayCompose()
   t.bars = -1;
   t.progress = -1;
 
+  // a message from the companion takes the whole screen, while the
+  // machine's own screen is dark
+  if(dispMsgTitle[0] && (millis() < dispMsgUntil))
+  {
+    strncpy(t.sys, dispMsgTitle, DISPLAY_NAME);
+    for(int i=0;i<DISPLAY_LINES;i++)
+      strncpy(t.line[i], dispMsg[i], DISPLAY_COLS);
+    xSemaphoreTake(dispLock, portMAX_DELAY);
+    if(memcmp(&t, &dispNext, sizeof(t)) != 0)
+    {
+      dispNext = t;
+      dispDirty = true;
+    }
+    xSemaphoreGive(dispLock);
+    return;
+  }
+
   if(WiFi.status() == WL_CONNECTED)
   {
     int rssi = WiFi.RSSI();
@@ -394,6 +414,46 @@ void displaySystem(const char *name)
   strncpy(dispSys, name, DISPLAY_NAME);
   dispSys[DISPLAY_NAME] = 0;
   dispNextMs = 0;
+}
+
+// "Title|text|more text": the title large, the text wrapped over the six
+// lines below, a new line at every further '|'. '_' stands for a space, so
+// the message gets through a command line in one piece. Stays five minutes
+// or until the next one; an empty one clears it.
+void displayMessage(const char *msg)
+{
+  memset(dispMsg, 0, sizeof(dispMsg));
+  dispMsgTitle[0] = 0;
+  dispNextMs = 0;
+  if((msg == NULL) || (*msg == 0))
+    return;
+  size_t n = 0;
+  for(;*msg && (*msg != '|');msg++)
+    if(n < DISPLAY_NAME)
+      dispMsgTitle[n++] = (*msg == '_') ? ' ' : *msg;
+  dispMsgTitle[n] = 0;
+  int line = 0;
+  size_t col = 0;
+  if(*msg == '|')
+    msg++;
+  for(;*msg && (line < DISPLAY_LINES);msg++)
+  {
+    if(*msg == '|')
+    {
+      line++;
+      col = 0;
+      continue;
+    }
+    if(col == DISPLAY_COLS)
+    {
+      line++;
+      col = 0;
+      if(line == DISPLAY_LINES)
+        break;
+    }
+    dispMsg[line][col++] = (*msg == '_') ? ' ' : *msg;
+  }
+  dispMsgUntil = millis() + 300000;
 }
 
 // The name of a file fetched, from the path of its URL: the part after the

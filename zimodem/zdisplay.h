@@ -10,6 +10,9 @@
    waits for it.
 
    AT+SYS:<name>   the machine, sent by the companion when it finds the modem
+   AT+MSG:<title>|<text>  a message over the whole screen, for when the
+                   machine's own screen is dark (a core being changed);
+                   '_' stands for a space; AT+MSG: alone clears it
    AT+DISP         what was found, "DISPLAY SSD1306 3C" or "DISPLAY NONE"
    AT+DISP:1306    the controller, stored: SSD1306 (most 0.96 inch ones)
    AT+DISP:1106    or SH1106 (the picture then sits two columns further left)
@@ -25,6 +28,7 @@ void displayActivity(const char *fmt, ...);   // the last line, for a while
 void displayProgress(int percent, const char *fmt, ...);   // a line and a bar below it
 void displaySystem(const char *name);
 void displayLoaded(const char *path);  // the last file fetched, kept on the last line
+void displayMessage(const char *msg);  // "Title|text|more text", the whole screen; "" clears
 bool displayCommand(const char *arg, String &answer);
 #else
 static inline void displaySetup() {}
@@ -33,6 +37,7 @@ static inline void displayActivity(const char *fmt, ...) {}
 static inline void displayProgress(int percent, const char *fmt, ...) {}
 static inline void displaySystem(const char *name) {}
 static inline void displayLoaded(const char *path) {}
+static inline void displayMessage(const char *msg) {}
 static inline bool displayCommand(const char *arg, String &answer) { return false; }
 #endif
 

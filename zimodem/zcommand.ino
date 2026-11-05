@@ -2938,6 +2938,13 @@ ZResult ZCommand::doSerialCommand()
         }
         break;
       case '+':
+        // AT+MSG: keeps its text as it came, before everything is lowered
+        if(strncasecmp((const char *)vbuf,"msg:",4)==0)
+        {
+            displayMessage((const char *)vbuf + 4);
+            result = ZOK;
+            break;
+        }
         for(int i=0;vbuf[i]!=0;i++)
           vbuf[i]=lc(vbuf[i]);
         if(strcmp((const char *)vbuf,"config")==0)
