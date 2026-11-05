@@ -419,7 +419,8 @@ void displaySystem(const char *name)
 // "Title|text|more text": the title large, the text wrapped over the six
 // lines below, a new line at every further '|'. '_' stands for a space, so
 // the message gets through a command line in one piece. Stays five minutes
-// or until the next one; an empty one clears it.
+// or until the next one, "30:" in front makes it 30 seconds; an empty one
+// clears it.
 void displayMessage(const char *msg)
 {
   memset(dispMsg, 0, sizeof(dispMsg));
@@ -427,6 +428,14 @@ void displayMessage(const char *msg)
   dispNextMs = 0;
   if((msg == NULL) || (*msg == 0))
     return;
+  // "30:Title|text": shown 30 seconds instead of five minutes
+  unsigned long secs = 300;
+  const char *semi = strchr(msg, ':');
+  if(semi && (semi > msg) && (semi - msg <= 4) && isdigit((unsigned char)*msg))
+  {
+    secs = strtoul(msg, NULL, 10);
+    msg = semi + 1;
+  }
   size_t n = 0;
   for(;*msg && (*msg != '|');msg++)
     if(n < DISPLAY_NAME)
@@ -453,7 +462,7 @@ void displayMessage(const char *msg)
     }
     dispMsg[line][col++] = (*msg == '_') ? ' ' : *msg;
   }
-  dispMsgUntil = millis() + 300000;
+  dispMsgUntil = millis() + secs * 1000;
 }
 
 // The name of a file fetched, from the path of its URL: the part after the
