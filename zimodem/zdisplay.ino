@@ -16,8 +16,8 @@
 #include <Preferences.h>
 #include "zdisplay_font.h"
 
-#define DISPLAY_SDA     1
-#define DISPLAY_SCL     2
+#define DISPLAY_SDA     8
+#define DISPLAY_SCL     7
 #define DISPLAY_I2C_HZ  400000
 #define DISPLAY_LINES   6                 // text lines below the name
 #define DISPLAY_COLS    21                // 6 pixels each

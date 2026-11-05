@@ -3,9 +3,11 @@
    SSD1306 or SH1106 on I2C. It shows which machine the modem serves, the
    WiFi, the address, the clock and what the modem is doing.
 
-   Wiring on the ESP32-S3 DevKitC-1: GND, VCC to 3V3, SDA to GPIO1, SCL to
-   GPIO2. Without a display nothing changes: it is looked for every few
-   seconds, and nothing waits for it.
+   Wiring on the ESP32-S3 DevKitC-1, all on its left header (the one a
+   breadboard leaves reachable): GND, VCC to 3V3, SDA to GPIO8, SCL to
+   GPIO7. GPIO4, 5, 6 and 9 there are Zimodem's modem lines. Without a
+   display nothing changes: it is looked for every few seconds, and nothing
+   waits for it.
 
    AT+SYS:<name>   the machine, sent by the companion when it finds the modem
    AT+DISP         what was found, "DISPLAY SSD1306 3C" or "DISPLAY NONE"
