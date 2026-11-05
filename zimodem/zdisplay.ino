@@ -161,9 +161,31 @@ static void displayTask(void *arg)
   bool ready = false;
   bool lit = false;
   int shownShift = -1;
-  unsigned long nextProbe = 0;
+  // On the common 5 V rail the display gets its power in the same moment as
+  // the S3. Asked right away, it acknowledged its address but missed the
+  // commands, the charge pump above all, and stayed dark; after a reset of
+  // the S3 alone, as after flashing, it came up. So a second's patience
+  // first, and every ten seconds the pump and the display on again: harmless
+  // when it runs, and it brings back one that missed the start or a dip.
+  unsigned long nextProbe = millis() + 1000;
+  unsigned long nextWake = 0;
   for(;;)
   {
+    if(ready && dispOn && (millis() >= nextWake))
+    {
+      static const uint8_t wake1306[] = { 0x8D, 0x14, 0xAF };
+      static const uint8_t wake1106[] = { 0xAD, 0x8B, 0xAF };
+      nextWake = millis() + 10000;
+      bool ok = dispSh1106 ? dispCmds(wake1106, sizeof(wake1106)) : dispCmds(wake1306, sizeof(wake1306));
+      if(!ok)
+      {
+        ready = false;
+        dispAddr = 0;
+        nextProbe = millis() + 5000;
+      }
+      else
+        lit = true;
+    }
     if((!ready || dispReinit) && (millis() >= nextProbe))
     {
       dispReinit = false;
@@ -171,7 +193,10 @@ static void displayTask(void *arg)
       ready = (dispAddr != 0) && dispInit();
       lit = false;
       if(ready)
+      {
         dispDirty = true;
+        nextWake = millis() + 2000;       // the first time soon after the init
+      }
       else
       {
         dispAddr = 0;
