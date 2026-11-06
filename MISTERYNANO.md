@@ -120,6 +120,19 @@ The companion asks the modem about the controller: `AT+JOY` answers
 `JOYPAD <model>` or `JOYPAD NONE`, `AT+JOYPAIR` drops the controller and
 all bonds and accepts a new one. Its menu entry `Controller...` uses both.
 
+## A file up to a web server: `AT+PUT`
+
+`AT+PUT:<length>:<url>` is `ATGxmodem:` the other way round: the modem
+answers `XMODEM <length>`, receives `<length>` bytes over XMODEM (1 KB
+blocks with a CRC) into PSRAM, POSTs them to `<url>` and says
+`POST <code>, <length> bytes, xmodem <ms> ms, post <ms> ms, rssi <dBm>`,
+then `OK` on 200, `ERROR` otherwise. Up to 4 MB. The companion uses it to
+send disk images a game has written back to stserve (`save=on`). A plain
+stream (`ATD`, the bytes, `+++`) cannot carry such a file: in a stream
+every byte from the serial side goes to the socket on its own, slower
+than 19200 baud bring them, and a kilobyte left the modem answering
+nothing.
+
 Images on the release page: `zimodem-c3-supermini-bluepad32.bin` and
 `zimodem-s3-devkitc-bluepad32.bin` (whole flash at `0x0`; the partition
 layout differs from the plain build, so the saved WiFi settings are lost
