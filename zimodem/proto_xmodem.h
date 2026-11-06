@@ -404,6 +404,103 @@ static bool xDownloadMemory(FlowControlType commandFlow, uint8_t *mem, uint32_t 
   xMemLeft = 0;
   return result && all;
 }
+
+/* ---- AT+PUT: a file from the receiver to a web server ----
+   The other way round from ATGxmodem: the receiver sends the file over
+   XMODEM into PSRAM, then it goes to the server in one POST. A plain
+   stream (ATD, the bytes, +++) cannot carry it: in a stream every byte
+   from the serial side goes to the socket on its own, slower than they
+   arrive, and a kilobyte overran the receive buffer. */
+#define XPUT_MAX (4UL * 1024 * 1024)
+static uint8_t *xPutMem = NULL;
+static uint32_t xPutCap = 0, xPutGot = 0;
+
+// the blocks arrive in order, a repeated one is not handed over again
+static bool xPDataHandler(File *xfile, unsigned long number, char *buf, int sz)
+{
+  if(xPutGot + (uint32_t)sz > xPutCap)
+    sz = (int)(xPutCap - xPutGot);
+  memcpy(xPutMem + xPutGot, buf, sz);
+  xPutGot += sz;
+  return true;
+}
+
+static bool xUploadMemory(FlowControlType commandFlow, uint8_t *mem, uint32_t cap)
+{
+  File dummy;
+  xPutMem = mem;
+  xPutCap = cap;
+  xPutGot = 0;
+  XModem xmo(dummy, commandFlow, xReceiveSerial, xSendSerial, xPDataHandler);
+  bool result = xmo.receive();
+  xPutMem = NULL;
+  return result;
+}
+
+// POST len bytes of mem to host:port req; the server's status code, or 0
+// when it could not be reached or did not answer
+static int xPostMemory(const char *host, int port, const char *req, bool ssl,
+                       const uint8_t *mem, uint32_t len)
+{
+  if(WiFi.status() != WL_CONNECTED)
+    return 0;
+  WiFiClient *c = createWiFiClient(ssl);
+  if(port == 0)
+    port = 80;
+  if(!c->connect(host, port))
+  {
+    debugPrintf("AT+PUT: connect failed, rssi %d\r\n", (int)WiFi.RSSI());
+    c->stop();
+    delete c;
+    return 0;
+  }
+  c->setNoDelay(true);
+  c->printf("POST %s%s HTTP/1.0\r\nHost: %s\r\nContent-Type: application/octet-stream\r\n"
+            "Content-Length: %lu\r\nConnection: close\r\n\r\n",
+            (req[0] == '/') ? "" : "/", req, host, (unsigned long)len);
+  uint32_t sent = 0;
+  unsigned long last = millis();
+  while(sent < len && c->connected() && (millis() - last) < 30000)
+  {
+    size_t n = c->write(mem + sent, (len - sent > 4096) ? 4096 : (len - sent));
+    if(n > 0)
+    {
+      sent += n;
+      last = millis();
+    }
+    else
+      delay(5);
+    yield();
+  }
+  int code = 0;
+  if(sent == len)
+  {
+    // the status line: "HTTP/1.x 200 ..."
+    String line = "";
+    unsigned long wait = millis();
+    while((millis() - wait) < 20000 && (c->connected() || c->available()))
+    {
+      if(c->available())
+      {
+        char ch = (char)c->read();
+        if(ch == '\n')
+          break;
+        if(ch != '\r' && line.length() < 80)
+          line += ch;
+      }
+      else
+        delay(2);
+    }
+    if(line.startsWith("HTTP/1.") && line.length() > 11)
+      code = atoi(line.c_str() + 9);
+    debugPrintf("AT+PUT: %lu bytes sent, '%s'\r\n", (unsigned long)len, line.c_str());
+  }
+  else
+    debugPrintf("AT+PUT: only %lu of %lu bytes went out\r\n", (unsigned long)sent, (unsigned long)len);
+  c->stop();
+  delete c;
+  return code;
+}
 #endif
 
 static bool xDownloadStream(FlowControlType commandFlow, WiFiClient *c, uint32_t length, String &errors)

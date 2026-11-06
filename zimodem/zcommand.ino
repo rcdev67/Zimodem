@@ -2945,6 +2945,54 @@ ZResult ZCommand::doSerialCommand()
             result = ZOK;
             break;
         }
+#if INCLUDE_XMODEM_WEB && defined(ZIMODEM_ESP32)
+        // AT+PUT:<length>:<url>: <length> bytes from the receiver over
+        // XMODEM, then to <url> in one POST. Answers "XMODEM <length>"
+        // before the transfer, "POST <code> ..." after it, then OK or
+        // ERROR. The url as it came, upper case and all.
+        if(strncasecmp((const char *)vbuf,"put:",4)==0)
+        {
+            char *end = NULL;
+            unsigned long plen = strtoul((const char *)vbuf + 4, &end, 10);
+            char *hostIp;
+            char *req;
+            int port;
+            bool doSSL;
+            result = ZERROR;
+            if((end == NULL) || (*end != ':') || (plen == 0) || (plen > XPUT_MAX)
+            || !parseWebUrl((uint8_t *)end + 1, &hostIp, &req, &port, &doSSL))
+            {
+              debugPrintf("AT+PUT: not understood\r\n");
+              break;
+            }
+            displayQuiet(strncmp((req[0] == '/') ? req + 1 : req, "_/", 2) == 0);
+            uint8_t *mem = (uint8_t *)ps_malloc(plen + 1024);
+            if(mem == NULL)
+            {
+              serial.printf("PUT no memory for %lu bytes%s", plen, EOLN.c_str());
+              break;
+            }
+            serial.printf("XMODEM %lu%s", plen, EOLN.c_str());
+            serial.flushAlways();
+            unsigned long xmStart = millis();
+            bool ok = xUploadMemory(commandMode.getFlowControlType(), mem, plen + 1024);
+            unsigned long xmMs = millis() - xmStart;
+            delay(100);
+            if(!ok || (xPutGot < plen))
+              serial.printf("PUT xmodem failed, %lu of %lu bytes%s", (unsigned long)xPutGot, plen, EOLN.c_str());
+            else
+            {
+              unsigned long postStart = millis();
+              int code = xPostMemory(hostIp, port, req, doSSL, mem, plen);
+              serial.printf("POST %d, %lu bytes, xmodem %lu ms, post %lu ms, rssi %d%s", code, plen,
+                            xmMs, millis() - postStart, (int)WiFi.RSSI(), EOLN.c_str());
+              if(code == 200)
+                result = ZOK;
+            }
+            free(mem);
+            break;
+        }
+#endif
         for(int i=0;vbuf[i]!=0;i++)
           vbuf[i]=lc(vbuf[i]);
         if(strcmp((const char *)vbuf,"config")==0)
