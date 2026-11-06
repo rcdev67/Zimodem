@@ -43,6 +43,7 @@ static char dispMsgTitle[DISPLAY_NAME + 1] = "";  // a message over the whole sc
 static char dispMsg[DISPLAY_LINES][DISPLAY_COLS + 1];
 static unsigned long dispMsgUntil = 0;
 static unsigned long dispNextMs = 0;
+static bool dispQuiet = false;            // a fetch not worth showing
 static volatile bool dispSh1106 = false;
 static volatile bool dispOn = true;
 static volatile bool dispReinit = false;
@@ -374,8 +375,15 @@ void displayLoop()
   displayCompose();
 }
 
+void displayQuiet(bool quiet)
+{
+  dispQuiet = quiet;
+}
+
 void displayActivity(const char *fmt, ...)
 {
+  if(dispQuiet)
+    return;
   va_list ap;
   va_start(ap, fmt);
   vsnprintf(dispAct, sizeof(dispAct), fmt, ap);
@@ -387,6 +395,8 @@ void displayActivity(const char *fmt, ...)
 
 void displayProgress(int percent, const char *fmt, ...)
 {
+  if(dispQuiet)
+    return;
   va_list ap;
   va_start(ap, fmt);
   vsnprintf(dispAct, sizeof(dispAct), fmt, ap);
@@ -470,7 +480,7 @@ void displayMessage(const char *msg)
 // folder list and changes nothing.
 void displayLoaded(const char *path)
 {
-  if(path == NULL)
+  if((path == NULL) || dispQuiet)
     return;
   const char *s = strrchr(path, '/');
   s = s ? s + 1 : path;

@@ -3435,6 +3435,9 @@ ZResult ZCommand::doSerialCommand()
             else
             {
               debugPrintf("ATGxmodem: host '%s' port %d req '%s' wifi %d\r\n", hostIp, port, req, (int)WiFi.status());
+              // stserve's own requests, "/_/...", such as the companion
+              // asking for a game to play, stay off the display
+              displayQuiet(strncmp((req[0] == '/') ? req + 1 : req, "_/", 2) == 0);
               unsigned long getStart = millis();
               uint32_t respLength = 0;
               WiFiClient *wc = doWebGetStream(hostIp, port, req, doSSL, &respLength);

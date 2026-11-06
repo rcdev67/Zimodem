@@ -29,6 +29,9 @@ void displayProgress(int percent, const char *fmt, ...);   // a line and a bar b
 void displaySystem(const char *name);
 void displayLoaded(const char *path);  // the last file fetched, kept on the last line
 void displayMessage(const char *msg);  // "Title|text|more text", the whole screen; "" clears
+// a fetch the display keeps quiet about: the companion asking stserve
+// for a game to play every few seconds, "/_/job" -- see zcommand.ino
+void displayQuiet(bool quiet);
 bool displayCommand(const char *arg, String &answer);
 #else
 static inline void displaySetup() {}
